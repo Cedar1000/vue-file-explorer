@@ -220,6 +220,7 @@ export default {
       css: 'mdi-language-css3',
       mp3: 'mdi-music',
       mp4: 'mdi-video',
+      notAllowed: 'mdi-alert-circle',
     },
     tree: [],
     items: [
@@ -315,7 +316,22 @@ export default {
         if (!this.filename.split('.')[1]) {
           this.errorMsg = 'Please specify a file extension ';
         } else {
-          createdFile = new File(this.filename);
+          const ext = this.filename.split('.')[1];
+          console.log(ext);
+
+          const availableExt = Object.keys(this.files);
+
+          let file;
+
+          console.log(!availableExt.includes(ext));
+
+          if (!availableExt.includes(ext)) {
+            file = 'notAllowed';
+          }
+          console.log(file);
+          createdFile = new File(this.filename, file);
+
+          console.log(createdFile);
         }
       }
       if (this.type === 'folder') createdFile = new Folder(this.filename);

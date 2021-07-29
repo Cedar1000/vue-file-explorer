@@ -1,7 +1,7 @@
 export class File {
-  constructor(name) {
+  constructor(name, file) {
     this.name = name;
-    this.file = name.split('.')[1];
+    this.file = file || name.split('.')[1];
   }
 }
 
