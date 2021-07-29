@@ -311,7 +311,13 @@ export default {
     create() {
       this.mode = 'Create';
       let createdFile;
-      if (this.type === 'file') createdFile = new File(this.filename);
+      if (this.type === 'file') {
+        if (!this.filename.split('.')[1]) {
+          this.errorMsg = 'Please specify a file extension ';
+        } else {
+          createdFile = new File(this.filename);
+        }
+      }
       if (this.type === 'folder') createdFile = new Folder(this.filename);
 
       const found = this.active.children.find(
