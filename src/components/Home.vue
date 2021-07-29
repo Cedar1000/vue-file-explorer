@@ -1,5 +1,41 @@
 <template>
   <div>
+    <v-app-bar class="navbar" dark>
+      <v-app-bar-nav-icon
+        class="nav-toggle"
+        @click="drawer = true"
+      ></v-app-bar-nav-icon>
+
+      <v-toolbar-title>Vue File Explorer</v-toolbar-title>
+    </v-app-bar>
+
+    <v-navigation-drawer v-model="drawer" absolute temporary>
+      <v-treeview
+        v-model="tree"
+        :open="initiallyOpen"
+        :items="items"
+        activatable
+        item-key="name"
+        open-on-click
+      >
+        <template v-slot:label="{ item, open }">
+          <div class="item-wrapper">
+            <v-icon class="v-icon" v-if="!item.file">
+              {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
+            </v-icon>
+
+            <v-icon class="v-icon" v-if="item.file">
+              {{ files[item.file] }}
+            </v-icon>
+
+            <div class="action">
+              <a @click="updateShowcase(item)">{{ item.name }}</a>
+            </div>
+          </div>
+        </template>
+      </v-treeview>
+    </v-navigation-drawer>
+
     <div class="layout">
       <div class="structure">
         <v-treeview
@@ -12,11 +48,11 @@
         >
           <template v-slot:label="{ item, open }">
             <div class="item-wrapper">
-              <v-icon v-if="!item.file">
+              <v-icon class="v-icon" v-if="!item.file">
                 {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
               </v-icon>
 
-              <v-icon v-if="item.file">
+              <v-icon class="v-icon" v-if="item.file">
                 {{ files[item.file] }}
               </v-icon>
 
@@ -39,8 +75,12 @@
               <div class="buttons">
                 <v-btn
                   class="add-btn"
-                  @click="type = 'file'"
-                  color="primary"
+                  @click="
+                    {
+                      type = 'file';
+                      mode = 'Create';
+                    }
+                  "
                   v-bind="attrs"
                   v-on="on"
                   ><span class="btn-wrapper">
@@ -50,8 +90,12 @@
 
                 <v-btn
                   class="add-btn"
-                  color="primary"
-                  @click="type = 'folder'"
+                  @click="
+                    {
+                      type = 'folder';
+                      mode = 'Create';
+                    }
+                  "
                   v-bind="attrs"
                   v-on="on"
                   ><span class="btn-wrapper"
@@ -62,13 +106,18 @@
             </template>
             <template v-slot:default="dialog">
               <v-card>
-                <v-toolbar v-if="mode === 'Edit'" color="primary" dark>{{
-                  `Edit ${currrentItem.name} in this directory`
-                }}</v-toolbar>
+                <p
+                  class="toolbar-pop"
+                  v-if="mode === 'Edit'"
+                  color="primary"
+                  dark
+                >
+                  {{ `Edit ${currrentItem.name} in this directory` }}
+                </p>
 
-                <v-toolbar v-else color="primary" dark>{{
-                  `${mode} ${type} in this directory`
-                }}</v-toolbar>
+                <p class="toolbar-pop" v-else color="primary" dark>
+                  {{ `${mode} ${type} in this directory` }}
+                </p>
 
                 <v-alert v-show="errorMsg" dense outlined type="error">
                   {{ errorMsg }}
@@ -80,7 +129,18 @@
                   ></v-text-field>
                 </v-card-text>
 
-                <v-btn color="primary" @click="create()">Submit</v-btn>
+                <div class="submit-btn">
+                  <v-btn
+                    v-if="mode === 'Create'"
+                    class="add-btn"
+                    @click="create()"
+                    >Create</v-btn
+                  >
+                  <v-btn v-if="mode === 'Edit'" class="add-btn" @click="edit()"
+                    >Edit</v-btn
+                  >
+                </div>
+
                 <v-card-actions class="justify-end">
                   <v-btn
                     text
@@ -109,11 +169,11 @@
                 :key="i"
               >
                 <v-list-item-icon>
-                  <v-icon v-if="!item.file">
+                  <v-icon class="v-icon" v-if="!item.file">
                     {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
                   </v-icon>
 
-                  <v-icon v-if="item.file">
+                  <v-icon class="v-icon" v-if="item.file">
                     {{ files[item.file] }}
                   </v-icon>
                 </v-list-item-icon>
@@ -122,9 +182,15 @@
                   <v-list-item-title v-text="item.name"></v-list-item-title>
                 </v-list-item-content>
 
-                <span class="edit-span" @click="editItem(item)">
-                  <i class="far fa-edit"></i
-                ></span>
+                <div class="action-icons">
+                  <span class="edit-span" @click="editItem(item)">
+                    <i class="far fa-edit v-icon"></i
+                  ></span>
+
+                  <span class="edit-span" @click="deleteItem(item)">
+                    <i class="fas fa-trash-alt v-icon"></i
+                  ></span>
+                </div>
               </v-list-item>
             </v-list-item-group>
           </v-list>
@@ -228,6 +294,8 @@ export default {
     mode: 'Create',
     currrentItem: null,
     oldName: '',
+    drawer: false,
+    group: null,
   }),
 
   methods: {
@@ -236,38 +304,40 @@ export default {
     },
 
     updateShowcase(item) {
-      console.log(item);
+      this.drawer = false;
       if (item.children) this.active = item;
     },
 
     create() {
+      this.mode = 'Create';
       let createdFile;
-      if ((this.mode = 'Edit')) {
-        const index = this.active.children.findIndex(
-          (el) => el.name === this.oldName
-        );
+      if (this.type === 'file') createdFile = new File(this.filename);
+      if (this.type === 'folder') createdFile = new Folder(this.filename);
 
-        if (this.type === 'file') createdFile = new File(this.filename);
-        if (this.type === 'folder') createdFile = new Folder(this.filename);
+      const found = this.active.children.find(
+        (el) => el.name === createdFile.name
+      );
 
-        this.active.children.splice(index, 1, createdFile);
-        this.showDialog = false;
+      if (found) {
+        this.errorMsg = 'File already exists in this directory';
       } else {
-        if (this.type === 'file') createdFile = new File(this.filename);
-        if (this.type === 'folder') createdFile = new Folder(this.filename);
-
-        const found = this.active.children.find(
-          (el) => el.name === createdFile.name
-        );
-
-        if (found) {
-          this.errorMsg = 'File already exists in this directory';
-        } else {
-          this.active.children.push(createdFile);
-          this.filename = '';
-          this.showDialog = false;
-        }
+        this.active.children.push(createdFile);
+        this.filename = '';
+        this.showDialog = false;
       }
+    },
+
+    edit() {
+      let createdFile;
+
+      const index = this.active.children.findIndex(
+        (el) => el.name === this.oldName
+      );
+      if (this.type === 'file') createdFile = new File(this.filename);
+      if (this.type === 'folder') createdFile = new Folder(this.filename);
+      this.active.children.splice(index, 1, createdFile);
+      this.showDialog = false;
+      this.filename = '';
     },
 
     setShowcase(item) {
@@ -280,13 +350,19 @@ export default {
       this.currrentItem = item;
 
       this.filename = item.name;
-      this.oldName = item.name;
       this.showDialog = true;
       if (item.children) {
         this.type = 'folder';
       } else {
         this.type = 'file';
       }
+    },
+
+    deleteItem(item) {
+      console.log(item);
+      this.active.children = this.active.children.filter(
+        (el) => el.name !== item.name
+      );
     },
   },
 
@@ -303,6 +379,10 @@ export default {
 </script>
 
 <style scoped>
+:root {
+  --brandcolor: #f68b1e;
+}
+
 .layout {
   display: flex;
 }
@@ -356,5 +436,61 @@ export default {
 
 .edit-span {
   z-index: 2;
+}
+
+.action-icons {
+  width: 6%;
+  display: flex;
+  justify-content: space-around;
+}
+
+.submit-btn {
+  display: flex;
+  justify-content: center;
+}
+
+a {
+  color: black !important;
+}
+
+.v-icon {
+  color: #f68b1e !important;
+}
+
+.navbar {
+  background: #f68b1e;
+}
+
+.add-btn {
+  background: #f68b1e !important;
+  color: #fff !important;
+}
+
+.toolbar-pop {
+  color: #f68b1e;
+
+  text-align: center;
+  padding: 10px;
+}
+
+@media (max-width: 400px) {
+  .structure {
+    display: none;
+  }
+
+  .buttons {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .buttons * {
+    margin: 10px 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .nav-toggle {
+    display: none;
+  }
 }
 </style>
