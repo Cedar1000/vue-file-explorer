@@ -36,28 +36,38 @@
             max-width="600"
           >
             <template v-slot:activator="{ on, attrs }">
-              <v-btn
-                @click="type = 'file'"
-                color="primary"
-                v-bind="attrs"
-                v-on="on"
-                ><i class="fas fa-plus"></i> Add File
-                <i class="far fa-file-alt"></i
-              ></v-btn>
+              <div class="buttons">
+                <v-btn
+                  class="add-btn"
+                  @click="type = 'file'"
+                  color="primary"
+                  v-bind="attrs"
+                  v-on="on"
+                  ><span class="btn-wrapper">
+                    <i class="fas fa-plus"></i> <span>Add File</span>
+                    <i class="far fa-file-alt"></i> </span
+                ></v-btn>
 
-              <v-btn
-                color="primary"
-                @click="type = 'folder'"
-                v-bind="attrs"
-                v-on="on"
-                ><i class="fas fa-plus"></i> Add Folder
-                <i class="fas fa-folder"></i
-              ></v-btn>
+                <v-btn
+                  class="add-btn"
+                  color="primary"
+                  @click="type = 'folder'"
+                  v-bind="attrs"
+                  v-on="on"
+                  ><span class="btn-wrapper"
+                    ><i class="fas fa-plus"></i> <span>Add Folder</span>
+                    <i class="fas fa-folder"></i></span
+                ></v-btn>
+              </div>
             </template>
             <template v-slot:default="dialog">
               <v-card>
-                <v-toolbar color="primary" dark>{{
-                  `Create ${type} in this directory`
+                <v-toolbar v-if="mode === 'Edit'" color="primary" dark>{{
+                  `Edit ${currrentItem.name} in this directory`
+                }}</v-toolbar>
+
+                <v-toolbar v-else color="primary" dark>{{
+                  `${mode} ${type} in this directory`
                 }}</v-toolbar>
 
                 <v-alert v-show="errorMsg" dense outlined type="error">
@@ -66,13 +76,22 @@
                 <v-card-text>
                   <v-text-field
                     v-model="filename"
-                    :label="`Create ${type}`"
+                    :label="`${mode} ${type}`"
                   ></v-text-field>
                 </v-card-text>
 
                 <v-btn color="primary" @click="create()">Submit</v-btn>
                 <v-card-actions class="justify-end">
-                  <v-btn text @click="dialog.value = false">Close</v-btn>
+                  <v-btn
+                    text
+                    @click="
+                      {
+                        dialog.value = false;
+                        edit = false;
+                      }
+                    "
+                    >Close</v-btn
+                  >
                 </v-card-actions>
               </v-card>
             </template>
@@ -84,7 +103,11 @@
               v-model="selectedItem"
               color="primary"
             >
-              <v-list-item v-for="(item, i) in active.children" :key="i">
+              <v-list-item
+                class="list-item"
+                v-for="(item, i) in active.children"
+                :key="i"
+              >
                 <v-list-item-icon>
                   <v-icon v-if="!item.file">
                     {{ open ? 'mdi-folder-open' : 'mdi-folder' }}
@@ -95,9 +118,13 @@
                   </v-icon>
                 </v-list-item-icon>
 
-                <v-list-item-content>
+                <v-list-item-content @click="setShowcase(item)">
                   <v-list-item-title v-text="item.name"></v-list-item-title>
                 </v-list-item-content>
+
+                <span class="edit-span" @click="editItem(item)">
+                  <i class="far fa-edit"></i
+                ></span>
               </v-list-item>
             </v-list-item-group>
           </v-list>
@@ -124,6 +151,9 @@ export default {
       png: 'mdi-file-image',
       txt: 'mdi-file-document-outline',
       xls: 'mdi-file-excel',
+      css: 'mdi-language-css3',
+      mp3: 'mdi-music',
+      mp4: 'mdi-video',
     },
     tree: [],
     items: [
@@ -189,12 +219,15 @@ export default {
     ],
 
     selectedItem: 1,
-
+    open: '',
     errorMsg: '',
     active: null,
     showDialog: false,
     filename: '',
     type: null,
+    mode: 'Create',
+    currrentItem: null,
+    oldName: '',
   }),
 
   methods: {
@@ -208,21 +241,50 @@ export default {
     },
 
     create() {
-      let createdFile;
-      if (this.type === 'file') createdFile = new File(this.filename);
-      if (this.type === 'folder') createdFile = new Folder(this.filename);
+      if ((this.mode = 'Edit')) {
+        const index = this.active.children.findIndex(
+          (el) => el.name === this.oldName
+        );
 
-      const found = this.active.children.find(
-        (el) => el.name === createdFile.name
-      );
-
-      if (found) {
-        this.errorMsg = 'File already exists in this directory';
-        console.log(this);
-      } else {
-        this.active.children.push(createdFile);
-        this.filename = '';
+        const newObj = { ...this.active.children[index] };
+        newObj.name = this.filename;
+        this.active.children.splice(index, 1, newObj);
         this.showDialog = false;
+      } else {
+        let createdFile;
+        if (this.type === 'file') createdFile = new File(this.filename);
+        if (this.type === 'folder') createdFile = new Folder(this.filename);
+
+        const found = this.active.children.find(
+          (el) => el.name === createdFile.name
+        );
+
+        if (found) {
+          this.errorMsg = 'File already exists in this directory';
+        } else {
+          this.active.children.push(createdFile);
+          this.filename = '';
+          this.showDialog = false;
+        }
+      }
+    },
+
+    setShowcase(item) {
+      if (item.children) this.active = item;
+    },
+
+    editItem(item) {
+      console.log(item);
+      this.mode = 'Edit';
+      this.currrentItem = item;
+
+      this.filename = item.name;
+      this.oldName = item.name;
+      this.showDialog = true;
+      if (item.children) {
+        this.type = 'folder';
+      } else {
+        this.type = 'file';
       }
     },
   },
@@ -266,5 +328,32 @@ export default {
 
 .action .icon {
   margin-left: 8px;
+}
+
+.btn-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.btn-wrapper span {
+  margin: 0 5px;
+}
+
+.buttons {
+  display: flex;
+  justify-content: stretch;
+  padding: 10px;
+}
+
+.buttons * {
+  margin: 0 0.5rem;
+}
+
+.list-item {
+  z-index: 1;
+}
+
+.edit-span {
+  z-index: 2;
 }
 </style>
