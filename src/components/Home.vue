@@ -241,17 +241,18 @@ export default {
     },
 
     create() {
+      let createdFile;
       if ((this.mode = 'Edit')) {
         const index = this.active.children.findIndex(
           (el) => el.name === this.oldName
         );
 
-        const newObj = { ...this.active.children[index] };
-        newObj.name = this.filename;
-        this.active.children.splice(index, 1, newObj);
+        if (this.type === 'file') createdFile = new File(this.filename);
+        if (this.type === 'folder') createdFile = new Folder(this.filename);
+
+        this.active.children.splice(index, 1, createdFile);
         this.showDialog = false;
       } else {
-        let createdFile;
         if (this.type === 'file') createdFile = new File(this.filename);
         if (this.type === 'folder') createdFile = new Folder(this.filename);
 
